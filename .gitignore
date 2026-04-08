@@ -1,0 +1,45 @@
+**/venv_brainnet/
+**/results/
+**/data/
+**/.vs/
+**/.vscode/
+**/__pycache__/
+**/*.zip
+# --- Imaging and Data files ---
+**/*.nii
+**/*.nii.gz
+**/*.json
+**/*.bval
+**/*.bvec
+**/*.csv
+**/*.xlsx
+
+# --- Python / Jupyter / System ---
+**/*.png
+**/*.pyc
+**/__pycache__/
+**/*.ipynb
+
+# --- Folders and Sub-folders ---
+**/IVIM3brain-NET-main/**
+**/IVIMDTINET/**
+
+# --- Specific Project Files ---
+**/environment.yml
+LICENSE
+*.workspace
+
+# --- Specific Scripts in the main folder ---
+download_data.py
+example_simulations2.py
+hyperparams.py
+predict_IVIM-DTI_parameter*
+WESAD_data_extraction.py
+WESAD_data_preprocessing.py
+WESAD_GAF_Test.py
+WESAD_GAF(f).py
+WESAD_preprocessing_TGNN.py
+TGNN.py
+model_CNN.py
+model_CNN_Test.py
+simulations.py
