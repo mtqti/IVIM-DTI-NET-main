@@ -1,14 +1,6 @@
 """
 Hyperparameters for 3C-IVIM PINN (7T)
 
-Parameter order used by network constraints:
-    [Dpar, Fint, Dint, Fmv, Dmv, S0]
-
-Changes from original IVIM3brain-NET (Voorter et al., MRM 2023;90:1657-1671):
-  - con = 'sigmoidabs' (paper: sigmoid on D-params, abs on fractions)
-  - n_ensemble = 20 (paper: 20 instances averaged for repeatability)
-  - max_epochs configurable (was hardcoded 1000 in deep.py)
-  - Removed module-level RNG seeding
 """
 
 import os
@@ -48,13 +40,10 @@ class net_pars:
         self.batch_norm = True
         self.parallel = True
 
-        # Paper (Voorter et al. 2023): sigmoid on diffusivities, abs on fractions
-        # This matches the 'sigmoidabs' mode in deep.py
+        
         self.con = 'sigmoidabs'
 
-        # FINAL agreed ranges [Dpar, Fint, Dint, Fmv, Dmv, S0]
-        # Note: for 'sigmoidabs', cons_min/max are only used for D-params and S0.
-        # Fraction outputs use torch.abs() (positivity only, no upper bound).
+        
         self.cons_min = [0.0001, 0.005, 0.0015, 0.0, 0.004, 0.90]
         self.cons_max = [0.0015, 0.4,   0.004,  0.05, 0.2,   1.10]
 
@@ -69,7 +58,7 @@ class lsqfit:
         self.do_fit = True
         self.fitS0 = True
         self.jobs = int(os.environ.get("HP_LSQ_JOBS", "1"))
-        # [S0, Dpar, Fint, Dint, Fmv, Dmv]
+        
         self.bounds = (
             [0.95, 0.0003, 0.00,  0.0018, 0.00,  0.070],
             [1.05, 0.0012, 0.25,  0.0035, 0.05,  0.150]
@@ -85,9 +74,7 @@ class sim:
             dtype=float
         )
 
-        # Fixed SNR range for 7T IVIM — covers low to high quality acquisitions.
-        # Per-voxel SNR is sampled uniformly from this range during training,
-        # making the network robust across all 7T protocols without user input.
+      
         self.snr_min = 30
         self.snr_max = 60
         self.sims = int(os.environ.get("HP_SIMS", "11500000"))
@@ -95,7 +82,7 @@ class sim:
         self.distribution = 'uniform'
 
         self.repeats = 1
-        # Paper: 20 ensemble instances for stable predictions
+        
         self.n_ensemble = int(os.environ.get("HP_ENSEMBLE", "20"))
         self.jobs = int(os.environ.get("HP_JOBS", "1"))
 
@@ -114,11 +101,6 @@ class rel_times:
         self.echotime = 58
         self.repetitiontime = 18000
         self.inversiontime = 0
-
-        # -----------------------------------------------------------------------
-        # 7T brain relaxation times — values updated from credible literature.
-        # All values in milliseconds (ms).
-        # -----------------------------------------------------------------------
 
         # Blood T1 at 7T: 2100 ms
         # Li W, Grgac K, Huang A, Yadav N, Qin Q, van Zijl PC.

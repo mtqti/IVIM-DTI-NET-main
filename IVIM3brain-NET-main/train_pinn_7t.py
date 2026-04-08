@@ -1,16 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Train 3C-IVIM PINN at 7T (IR or non-IR) with canonical parameter ranges.
 
-Canonical order:
-    [Dpar, Fint, Dint, Fmv, Dmv, S0]
-
-Changes from original:
-  - Default --ensemble=20 (paper: 20 instances for repeatability)
-  - Warns if ensemble=1
-  - Uses sigmoidabs constraint (paper methodology)
-"""
 
 import argparse
 import json
@@ -57,7 +47,7 @@ def apply_ranges_and_timing(arg, ir, te, tr, ti):
     arg.net_pars.fitS0 = True
     arg.net_pars.IR = bool(ir)
 
-    # simulation ranges: [Dpar, Fint, Dint, Fmv, Dmv]
+
     arg.sim.range = (
         [PARAM_RANGES["Dpar"][0], PARAM_RANGES["Fint"][0], PARAM_RANGES["Dint"][0], PARAM_RANGES["Fmv"][0], PARAM_RANGES["Dmv"][0]],
         [PARAM_RANGES["Dpar"][1], PARAM_RANGES["Fint"][1], PARAM_RANGES["Dint"][1], PARAM_RANGES["Fmv"][1], PARAM_RANGES["Dmv"][1]],
@@ -70,11 +60,7 @@ def apply_ranges_and_timing(arg, ir, te, tr, ti):
 
 
 def _copy_generated_plots_to_out(out_dir: Path):
-    """
-    simulations.py saves dependency/accuracy plots under ./results
-    deep.py training progress plots under ./plots
-    Copy both into out_dir/plots for convenience.
-    """
+
     dst = out_dir / "plots"
     dst.mkdir(parents=True, exist_ok=True)
 
@@ -116,37 +102,35 @@ def main():
 
     args.out.mkdir(parents=True, exist_ok=True)
 
-    # base hyperparams
+  
     arg = hp_example()
     arg = deep.checkarg(arg)
 
-    # reproducibility
+
     seed = getattr(arg.train_pars, "seed", 1337)
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
-    # training controls
     arg.train_pars.skip_net = False
     arg.train_pars.lr = float(args.lr)
     arg.train_pars.maxit = int(args.maxit)
 
-    # PINN-only
+  
     arg.fit.do_fit = False
 
-    # IMPORTANT: enable plotting
+  
     arg.fig = True
 
-    # simulation/training controls
+  
     arg.sim.n_ensemble = int(args.ensemble)
     arg.sim.repeats = int(args.repeats)
     arg.sim.jobs = int(args.jobs)
 
-    # canonical config + IR mode
     apply_ranges_and_timing(arg, args.ir, args.te, args.tr, args.ti)
 
-    # override b-values if provided on CLI
+ 
     if args.bvalues is not None:
         arg.sim.bvalues = np.array([float(b) for b in args.bvalues.split(",")], dtype=float)
 

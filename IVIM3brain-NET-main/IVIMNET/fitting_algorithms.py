@@ -1,13 +1,3 @@
-"""
-Aligned fitting algorithms for 3C-IVIM PINN pipeline (7T-capable)
-- Parameter order in outputs: [Dpar, Fmv, Dmv, Dint, Fint, S0]
-- IR correction uses explicit rel_times (no global hyperparams)
-- fit_dats supports NNLS only (LSQ path removed intentionally)
-
-Note: tri_expN_noS0 and tri_expN_noS0_IR support numpy broadcasting.
-When params are (N,1) and bvalues is (nb,), output is (N,nb).
-This enables vectorized signal generation in simulations.py.
-"""
 
 from scipy.optimize import nnls
 import numpy as np
@@ -38,10 +28,7 @@ def fit_dats(bvalues, dw_data, arg, method, IR=True, rel_times=None):
 
 
 def tri_expN_noS0(bvalues, Dpar, Fint, Dint, Fmv, Dmv):
-    """
-    Tri-exponential IVIM (S0 fixed to 1).
-    Supports broadcasting: params can be (N,1), bvalues (nb,) -> output (N,nb).
-    """
+    
     return (
         Fmv * np.exp(-bvalues * Dmv)
         + Fint * np.exp(-bvalues * Dint)
@@ -67,10 +54,7 @@ def _require_rel_times(rel_times):
 
 
 def tri_expN_noS0_IR(bvalues, Dpar, Fint, Dint, Fmv, Dmv, rel_times):
-    """
-    Tri-exponential IVIM with IR weighting (S0 fixed to 1).
-    Supports broadcasting: params can be (N,1), bvalues (nb,) -> output (N,nb).
-    """
+    
     _require_rel_times(rel_times)
 
     num = (
@@ -101,16 +85,12 @@ def tri_expN_noS0_IR(bvalues, Dpar, Fint, Dint, Fmv, Dmv, rel_times):
 
 
 def tri_expN_IR(bvalues, S0, Dpar, Fint, Dint, Fmv, Dmv, rel_times):
-    """Tri-exponential IVIM with IR weighting."""
+    
     return S0 * tri_expN_noS0_IR(bvalues, Dpar, Fint, Dint, Fmv, Dmv, rel_times)
 
 
 def correct_for_IR(ampl_Dpar, ampl_Dint, ampl_Dmv, rel_times):
-    """
-    Correct amplitudes to fractions under IR weighting.
-    Returns:
-        corr_Fpar, corr_Fint, corr_Fmv
-    """
+    
     _require_rel_times(rel_times)
 
     TtLt = np.exp(-rel_times.echotime / rel_times.tissueT2) * (
@@ -169,15 +149,7 @@ def fit_NNLS(
             [1.1, 0.0015, 0.4, 0.004, 0.2, 0.2]),
     rel_times=None,
 ):
-    """
-    NNLS spectral fit.
-
-    bounds order:
-      [S0, Dpar, Fint, Dint, Fmv, Dmv] min/max
-
-    Returns:
-      (Dpar, Fmv, Dmv, Dint, Fint, S0)
-    """
+    
     try:
         bvalues = np.asarray(bvalues, dtype=float).ravel()
         dw_data = np.asarray(dw_data, dtype=float)

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Final 7T IVIM runner (PINN + optional NNLS), supports IR and non-IR from CLI.
-Uses canonical ranges/order:
 
 SAVE ORDER:
     [Dpar, Fint, Dint, Fmv, Dmv, S0]
@@ -25,13 +23,13 @@ from hyperparams import hyperparams as hp_example
 # predict_IVIM output order from deep.py
 LIB_OUT_ORDER = ["Dpar", "Fmv", "Dmv", "Dint", "Fint", "S0"]
 
-# desired save order
+# save order
 SAVE_ORDER = ["Dpar", "Fint", "Dint", "Fmv", "Dmv", "S0"]
 
-# net constraint order used in deep.Net.forward
+# net constraint order
 LIB_CONS_ORDER = ["Dpar", "Fint", "Dint", "Fmv", "Dmv", "S0"]
 
-# FINAL agreed ranges
+#ranges
 PARAM_RANGES = {
     "Dpar": (0.0001, 0.0015),
     "Fint": (0.005, 0.4),
@@ -97,14 +95,14 @@ def _apply_runtime_config(arg, ir, te, tr, ti):
     arg.net_pars.fitS0 = True
     arg.sim.IR = bool(ir)
 
-    # Paper (Voorter et al. 2023): sigmoid on D-params, abs on fractions
+    
     arg.net_pars.con = "sigmoidabs"
 
-    # enforce final agreed bounds in correct order
+    
     arg.net_pars.cons_min = [PARAM_RANGES[n][0] for n in LIB_CONS_ORDER]
     arg.net_pars.cons_max = [PARAM_RANGES[n][1] for n in LIB_CONS_ORDER]
 
-    # timing
+
     arg.rel_times.echotime = float(te)
     arg.rel_times.repetitiontime = float(tr)
     arg.rel_times.inversiontime = float(ti)

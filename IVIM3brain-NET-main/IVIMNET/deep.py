@@ -1,17 +1,7 @@
 """
 Created September 2020 by Oliver Gurney-Champion & Misha Kaandorp
 Adapted January 2022 by Paulien Voorter
-Cleaned/aligned 2026 for 7T pipeline compatibility
-
-Changes from original IVIM3brain-NET (Voorter et al., MRM 2023;90:1657-1671):
-  - Fixed voxel-index corruption in predict_IVIM (np.delete before sels)
-  - Precompute IR scalar constants in Net.__init__ (avoid per-forward recompute)
-  - Replaced O(n^2) np.append loop with list + np.concatenate
-  - Refactored 6x duplicated parallel encoder construction into loop
-  - Configurable max_epochs (was hardcoded 1000)
-  - Removed module-level RNG seeding (defer to training script)
-  - Use 'Agg' backend by default (headless-safe)
-  - Use np.isnan / torch.isnan instead of custom isnan(x) = x != x
+Cleaned/aligned 2026 for 7T pipeline compatibility by M. Tahir Qurehsi. 
 """
 
 import numpy as np
@@ -31,12 +21,6 @@ if os.environ.get("MPLBACKEND") is None:
 from matplotlib import pyplot as plt
 
 
-# ---------- Canonical parameter names in constraint/output order ----------
-# Net constraints use: [Dpar, Fint, Dint, Fmv, Dmv, S0]
-# forward() returns:   X, Dpar, Fmv, Dmv, Dint, Fint, S0
-# predict_IVIM returns: [Dpar, Fmv, Dmv, Dint, Fint, S0]
-
-# Parallel encoder mapping (encoder index -> parameter name)
 _PAR_ENCODER_NAMES = ["Dmv", "Dpar", "Fmv", "Dint", "Fint"]
 # With fitS0, encoder5 -> S0
 
@@ -70,7 +54,7 @@ class Net(nn.Module):
         in_width = len(bvalues)
 
         if self.net_pars.parallel:
-            # Build one encoder per parameter via loop (was 6x copy-paste)
+            
             n_encoders = 6 if self.net_pars.fitS0 else 5
             self.encoders = nn.ModuleList()
             for _ in range(n_encoders):
@@ -81,7 +65,7 @@ class Net(nn.Module):
                 self.encoders.append(
                     nn.Sequential(*layers, nn.Linear(self.net_pars.width, 1))
                 )
-            # Convenience aliases matching original code for optimizer param groups
+            
             self.encoder0 = self.encoders[0]  # Dmv
             self.encoder1 = self.encoders[1]  # Dpar
             self.encoder2 = self.encoders[2]  # Fmv
@@ -96,7 +80,7 @@ class Net(nn.Module):
             )
             self.encoder0 = nn.Sequential(*layers, nn.Linear(self.net_pars.width, self.est_pars))
 
-        # Precompute IR scalar constants (never change during training)
+        
         if self.net_pars.IR:
             rt = self.rel_times
             self._ir_tissue_L = float(
@@ -161,11 +145,7 @@ class Net(nn.Module):
                     S0 = S0min + torch.sigmoid(params0[:, 5].unsqueeze(1)) * (S0max - S0min)
 
         elif self.net_pars.con == 'sigmoidabs':
-            # All six parameters now use sigmoid with their physical bounds.
-            # Fmv and Fint were previously torch.abs+clamp, which zeros the gradient
-            # at the ceiling and causes the network to get stuck at Fmvmax/Fintmax.
-            # Sigmoid gives a smooth bounded output in [min, max] with non-zero
-            # gradient everywhere, consistent with how Dpar/Dint/Dmv/S0 are handled.
+
             if self.net_pars.parallel:
                 Dmv  = Dmvmin  + torch.sigmoid(params0[:, 0].unsqueeze(1)) * (Dmvmax  - Dmvmin)
                 Dpar = Dparmin + torch.sigmoid(params1[:, 0].unsqueeze(1)) * (Dparmax - Dparmin)
@@ -202,7 +182,7 @@ class Net(nn.Module):
                     S0 = params0[:, 5].unsqueeze(1)
 
         if self.net_pars.IR:
-            # Use precomputed scalar constants instead of recomputing per call
+        
             tL = self._ir_tissue_L
             iL = self._ir_isf_L
             bL = self._ir_blood_L
@@ -247,7 +227,6 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
     X_train = X_train[np.percentile(X_train[:, bvalues > 150], 95, axis=1) < 1.0]
     X_train[X_train > 1.5] = 1.5
 
-    # keep numpy bvals for plotting, torch bvals for model
     bvalues_np = np.array(bvalues, dtype=np.float32)
     bvalues_t = torch.FloatTensor(bvalues_np).to(arg.train_pars.device)
 
@@ -421,7 +400,7 @@ def predict_IVIM(data, bvalues, net, arg):
     S0[S0 == 0] = 1.0
     data = data / S0[:, None]
 
-    # --- Build a single combined boolean mask on the original array ---
+
     lend = len(data)
     sels = np.isfinite(np.mean(data, axis=1))  # no NaNs
     # Percentile filters (only valid rows)
@@ -439,7 +418,7 @@ def predict_IVIM(data, bvalues, net, arg):
 
     net.eval()
 
-    # Collect batches in lists, concatenate once (was O(n^2) np.append)
+
     Dpar_list = []
     Fmv_list = []
     Dmv_list = []
@@ -476,7 +455,6 @@ def predict_IVIM(data, bvalues, net, arg):
     else:
         Dpar = Fmv = Dmv = Dint = Fint = S0p = np.array([])
 
-    # KEEP strict channel semantics from forward(); DO NOT mean-swap channels.
     if len(Dmv) > 0:
         print(
             "[predict_IVIM] means/stds | "
@@ -488,7 +466,7 @@ def predict_IVIM(data, bvalues, net, arg):
             f"S0 {np.mean(S0p):.6g}/{np.std(S0p):.6g}"
         )
 
-    # Write back into full-length arrays using the original boolean mask
+   
     Dmvtrue = np.zeros(lend)
     Dpartrue = np.zeros(lend)
     Fmvtrue = np.zeros(lend)
@@ -507,8 +485,7 @@ def predict_IVIM(data, bvalues, net, arg):
     if arg.train_pars.use_cuda:
         torch.cuda.empty_cache()
 
-    # Output order used by rest of pipeline:
-    # [Dpar, Fmv, Dmv, Dint, Fint, S0]
+ 
     return [Dpartrue, Fmvtrue, Dmvtrue, Dinttrue, Finttrue, S0true]
 
 

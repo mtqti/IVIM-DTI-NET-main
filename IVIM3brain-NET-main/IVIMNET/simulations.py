@@ -1,12 +1,5 @@
 """
 Simulation and benchmarking utilities for 3C-IVIM PINN (7T aligned)
-
-Changes from original IVIM3brain-NET (Voorter et al., MRM 2023;90:1657-1671):
-  - Vectorized sim_signal: signal + noise generated without Python for-loops
-    (~100x speedup for sims=11.5M)
-  - Fixed 'import scipy.stats as scipy' namespace shadow
-  - Removed module-level RNG seeding
-  - Use 'Agg' backend by default (headless-safe)
 """
 
 import os
@@ -29,7 +22,7 @@ import IVIMNET.fitting_algorithms as fit
 def sim(SNR, arg):
     arg = deep.checkarg(arg)
 
-    # Support SNR range for general pipeline robustness
+   
     snr_min = getattr(arg.sim, 'snr_min', None)
     snr_max = getattr(arg.sim, 'snr_max', None)
 
@@ -197,18 +190,7 @@ def sim_signal(
     snr_min=None,
     snr_max=None,
 ):
-    """
-    Generate simulated 3C-IVIM signals with optional IR weighting and noise.
 
-    CHANGED: fully vectorized — no Python for-loops over voxels.
-    At 11.5M sims this gives ~100x speedup vs the original per-voxel loop.
-
-    SNR augmentation: if snr_min and snr_max are both provided, each simulated
-    voxel is assigned a random SNR drawn from uniform(snr_min, snr_max).
-    This makes the trained network robust across the full 7T SNR range
-    rather than tuned to a single fixed noise level.
-    If snr_min/snr_max are not provided, the scalar SNR argument is used.
-    """
     rg = np.random.RandomState(state)
 
     if distribution == "uniform":
@@ -234,23 +216,18 @@ def sim_signal(
 
     bvalues = np.asarray(bvalues, dtype=float).ravel()
 
-    # --- Vectorized signal generation (replaces per-voxel Python loop) ---
-    # Shapes: params are (sims, 1), bvalues is (nb,)
-    # Broadcasting: (sims, 1) * (nb,) -> (sims, nb)
+
     if IR:
         if rel_times is None:
             raise ValueError("IR=True requires rel_times")
-        # Use the vectorized fitting_algorithms functions directly
-        # tri_expN_noS0_IR supports broadcasting when params are (sims,1) and bvalues is (nb,)
+
         data_sim = fit.tri_expN_noS0_IR(bvalues, Dpar, fint, Dint, fmv, Dmv, rel_times)
     else:
         data_sim = fit.tri_expN_noS0(bvalues, Dpar, fint, Dint, fmv, Dmv)
 
-    # --- Vectorized noise generation (replaces per-voxel loop) ---
+
     if snr_min is not None and snr_max is not None:
-        # Per-voxel SNR: each simulated voxel sees a different noise level,
-        # drawn uniformly from [snr_min, snr_max]. This is the key to making
-        # the network robust across the full range of 7T acquisitions.
+
         snr_per_vox = rg.uniform(snr_min, snr_max, (sims, 1))  # shape (sims, 1)
         noise_real = rg.normal(0, 1, (sims, nb := len(bvalues))) / snr_per_vox
         noise_imag = rg.normal(0, 1, (sims, nb)) / snr_per_vox
