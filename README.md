@@ -109,13 +109,13 @@ python train_pinn_7t.py \
 | `--jobs` | | `1` | Parallel workers |
 | `--bvalues` | | from `hyperparams.py` | Comma-separated b-values matching your `.bval` file exactly |
 
-**If your b-value scheme differs from the default**, pass it explicitly:
+**If your b-value scheme differs from the default, pass all b-values in acquisition order — one per volume, including all directions. For example, if you acquired 3 directions per shell, each b-value appears 3 times. 
 
 ```bash
 python train_pinn_7t.py \
   --out ./models/custom \
   --ir true --te 58 --tr 18000 --ti 2300 \
-  --bvalues "0,10,20,40,80,150,300,600,1000"
+  --bvalues "0,10,10,10,20,20,20,40,40,40,60,60,60,90,90,90,120,120,120,200,200,200,300,300,300,400,400,400,500,500,500,600,600,600,700,700,700,800,800,800,1000,1000,1000,1200,1200,1200"
 ```
 
 ### What gets saved
