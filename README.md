@@ -1,29 +1,221 @@
-# IVIM-DTI-NET
+# ICIM 3C — 3-Compartment IVIM PINN for 7T Human Brain DWI
 
-This repository contains the code regarding our paper in MRM: Diffusion-derived intravoxel-incoherent motion anisotropy relates to CSF and blood flow 
+This is a PINN-based pipeline for fitting three-compartment IVIM models on 7T diffusion data. It handles both IR and non-IR sequences out of the box, which was the main headache that motivated building this in the first place.
 
-## Description
-The aim of this repository is to enable you to use our IVIM-DTI-NET relatively easily on your own multi-b-value multi-directional diffusion-weighted data. 
+The approach follows [Voorter et al., MRM 2023](https://doi.org/10.1002/mrm.29754). If you use this, please cite that paper.
 
-train_network.py --> trains a selfsupervised physics-informed neural network using multi-b-value multi-directional data, which you can provide yourself or can be downloaded from https://zenodo.org/records/12545278 (note that our code downloads this data automatically in the folder 'data').
+---
 
-After your network is trained, it is being saved in the folder 'trained_networks', and you can observe the corresponding loss curve in the folder 'plots'
+## What it estimates
 
-Now, you can run predict_IVIM-DTI_parameters.py, which loads the trained network and predicts all IVIM-DTI model parameters. The IVIM-DTI parameter maps are saved in 'data/subject01/parammaps_IVIM-DTI-NET' as *.nii files having the same image space as the diffusion images. You can use a nifti viewer to see the paramater maps, (e.g., fsleyes).
+Six parameters per voxel, always in this order:
 
-## Create conda environment
-To directly run the code, we added a '.yml' file which can be run in anaconda. To create a conda environment with the '.yml' file, enter the command in the terminal (e.g. Anaconda Powershell Prompt): conda env create -f environment.yml 
+| Parameter | What it is | Range |
+|---|---|---|
+| `Dpar` | Parenchymal diffusivity (mm²/s) | 0.0001 – 0.0015 |
+| `Fint` | Interstitial fluid fraction | 0.005 – 0.4 |
+| `Dint` | Interstitial diffusivity (mm²/s) | 0.0015 – 0.004 |
+| `Fmv` | Microvascular fraction | 0.0 – 0.05 |
+| `Dmv` | Microvascular pseudo-diffusivity (mm²/s) | 0.004 – 0.2 |
+| `S0` | Baseline signal scale | 0.90 – 1.10 |
 
-This now creates an environment called 'ivimdti' that can be activated by: conda activate ivim
+The 4D output NIfTI stacks them in this exact order, and there's a `_ORDER.txt` file in every output folder so you never have to guess.
 
-## Authors
-Paulien Voorter paulien.voorter@gmail.com | p.voorter@maastrichtuniversity.nl | https://github.com/paulienvoorter
+---
 
-## Acknowledgement
+## Setup
 
-Note that this code is build upon previous repositories, and I would like to thank the authors for sharing their code:
+You'll need Python ≥ 3.9 and PyTorch. A GPU is strongly recommended for training — the default ensemble of 20 networks is slow on CPU.
 
-June 2021        Oliver Gurney-Champion and Misha Kaandorp https://github.com/oliverchampion/IVIMNET
+```bash
+# 1. Clone this repo
+git clone https://github.com/<your-org>/icim-3c-7t.git
+cd icim-3c-7t
 
-August 2019      Sebastiano Barbieri: https://github.com/sebbarb/deep_ivim
+# 2. Install IVIMNET (required dependency)
+git clone https://github.com/oliverchampion/IVIMNET.git
+pip install -e IVIMNET/
 
+# 3. Set up a virtual environment
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+
+# 4. Install the rest
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121  # CUDA 12.1
+# CPU-only alternative:
+# pip install torch torchvision
+
+pip install nibabel numpy scipy tqdm joblib matplotlib
+```
+
+Quick sanity check:
+
+```bash
+python - <<'EOF'
+import torch, nibabel, IVIMNET.deep as d
+print("PyTorch:", torch.__version__, "| CUDA:", torch.cuda.is_available())
+print("nibabel OK | IVIMNET OK")
+EOF
+```
+
+---
+
+## How it works — two steps
+
+```
+Step 1: train_pinn_7t.py    train a model for your specific protocol (once)
+Step 2: PINN_7T_style.py    apply that model to your subjects
+```
+
+You train once per protocol (IR vs non-IR, and your TE/TR/TI), then reuse the model for all subjects scanned with that protocol.
+
+---
+
+## Step 1 — Training
+
+```bash
+python train_pinn_7t.py \
+  --out    ./models/IR_TE58_TR18000_TI2300 \
+  --ir     true \
+  --te     58 \
+  --tr     18000 \
+  --ti     2300 \
+  --maxit  500 \
+  --lr     3e-5 \
+  --ensemble 20
+```
+
+Non-IR is the same, just flip the flag and set TI to 0:
+
+```bash
+python train_pinn_7t.py \
+  --out ./models/nonIR_TE58_TR8000 \
+  --ir false --te 58 --tr 8000 --ti 0
+```
+
+### All flags
+
+| Flag | Required | Default | Notes |
+|---|---|---|---|
+| `--out` | ✓ | — | Where to save the model and plots |
+| `--ir` | ✓ | — | `true` or `false` |
+| `--te` | ✓ | — | Echo time in ms |
+| `--tr` | ✓ | — | Repetition time in ms |
+| `--ti` | ✓ | — | Inversion time in ms — use `0` for non-IR |
+| `--maxit` | | `500` | Training iterations |
+| `--lr` | | `3e-5` | Learning rate |
+| `--ensemble` | | `20` | Number of networks to average. The paper used 20 — going lower will give noisier maps and you'll get a warning |
+| `--repeats` | | `1` | Independent repeat runs |
+| `--jobs` | | `1` | Parallel workers |
+| `--bvalues` | | from `hyperparams.py` | Comma-separated b-values matching your `.bval` file exactly |
+
+**If your b-value scheme differs from the default**, pass it explicitly:
+
+```bash
+python train_pinn_7t.py \
+  --out ./models/custom \
+  --ir true --te 58 --tr 18000 --ti 2300 \
+  --bvalues "0,10,20,40,80,150,300,600,1000"
+```
+
+### What gets saved
+
+```
+models/IR_TE58_TR18000_TI2300/
+├── PINN_7T_trained_IR.pt       ← the model weights you'll use in Step 2
+├── results_PINN.npy            ← simulation accuracy
+├── stability.npy               ← ensemble stability
+├── train_metadata.json         ← everything needed to reproduce this run
+└── plots/                      ← accuracy and dependency plots
+```
+
+---
+
+## Step 2 — Inference on real data
+
+```bash
+python PINN_7T_style.py \
+  --input  /path/to/sub-01_dwi.nii.gz \    # your 4D DWI
+  --mask   /path/to/sub-01_mask.nii.gz \   # your brain mask
+  --bvals  /path/to/sub-01_dwi.bval \      # your b-values file
+  --model  /path/to/PINN_7T_trained_IR.pt \ # trained model from Step 1
+  --out    /path/to/results/sub-01 \        # where outputs go
+  --ir     true \
+  --te     58 \
+  --tr     18000 \
+  --ti     2300
+```
+
+> **Important:** the `--ir`, `--te`, `--tr`, `--ti` flags here must match what you used during training. Mismatched timing = wrong signal model.
+
+### All flags
+
+| Flag | Required | Default | Notes |
+|---|---|---|---|
+| `--input` | ✓ | — | 4D DWI NIfTI |
+| `--mask` | ✓ | — | 3D brain mask |
+| `--bvals` | ✓ | — | Plain-text b-values, one per volume |
+| `--model` | ✓ | — | The `.pt` from Step 1 |
+| `--out` | ✓ | — | Output directory |
+| `--ir` | ✓ | — | Must match training |
+| `--te / --tr / --ti` | ✓ | — | Must match training |
+| `--run-nnls` | | `true` | Also run NNLS as a reference — set to `false` to skip |
+
+### What gets saved
+
+```
+results/sub-01/
+├── PINN_Dpar.nii.gz
+├── PINN_Fint.nii.gz
+├── PINN_Dint.nii.gz
+├── PINN_Fmv.nii.gz
+├── PINN_Dmv.nii.gz
+├── PINN_S0.nii.gz
+├── PINN_params_4d.nii.gz       ← all 6 params stacked
+├── PINN_ORDER.txt              ← confirms the volume order
+├── NNLS_*.nii.gz               ← same structure (if --run-nnls true)
+└── run_metadata.json
+```
+
+---
+
+## Relaxation times
+
+The defaults in `hyperparams.py` are set for 7T:
+
+| Tissue | T1 (ms) | T2 (ms) |
+|---|---|---|
+| Blood | 2600 | 23 |
+| Parenchyma | 1200 | 46 |
+| ISF | 4300 | 100 |
+
+If your site has different reference values, edit the `rel_times` class in `hyperparams.py`.
+
+---
+
+## GPU / device selection
+
+By default the pipeline uses whatever CUDA device is available. To run on a specific GPU or force CPU:
+
+```bash
+HP_DEVICE=cuda:1 python train_pinn_7t.py ...   # second GPU
+HP_DEVICE=cpu    python train_pinn_7t.py ...   # CPU only
+```
+
+---
+
+## Common issues
+
+**`ModuleNotFoundError: No module named 'IVIMNET'`**
+Run `pip install -e IVIMNET/` from the repo root, or add the IVIMNET directory to your `PYTHONPATH`.
+
+**CUDA out of memory during training**
+Lower `HP_SIMS` (e.g. `HP_SIMS=5000000`) or reduce `--ensemble`.
+
+**Mask/data shape mismatch**
+The mask must be a 3D file matching the first three dimensions of your 4D DWI. Check with `fslinfo`.
+
+**b-values count doesn't match volumes**
+Your `.bval` file needs exactly one value per volume, in acquisition order. Double-check with `fslinfo your_dwi.nii.gz`.
+
+---
