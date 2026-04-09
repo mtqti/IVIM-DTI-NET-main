@@ -48,7 +48,7 @@ pip install nibabel numpy scipy tqdm joblib matplotlib
 
 ---
 
-## How it works — two steps
+## How it works
 
 ```
 Step 0: Preprocessing
