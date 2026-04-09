@@ -102,7 +102,7 @@ python train_pinn_7t.py \
 | `--ti` | ✓ | — | Inversion time in ms — use `0` for non-IR |
 | `--maxit` | | `500` | Training iterations |
 | `--lr` | | `3e-5` | Learning rate |
-| `--ensemble` | | `20` | Number of networks to average. The paper used 20 — going lower will give noisier maps and you'll get a warning |
+| `--ensemble` | | `20` | Number of networks to average.|
 | `--repeats` | | `1` | Independent repeat runs |
 | `--jobs` | | `1` | Parallel workers |
 | `--bvalues` | | from `hyperparams.py` | Comma-separated b-values matching your `.bval` file exactly |
