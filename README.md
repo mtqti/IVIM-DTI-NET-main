@@ -1,8 +1,6 @@
 # ICIM 3C — 3-Compartment IVIM PINN for 7T Human Brain DWI
 
-This pipeline estimates three-compartment IVIM parameters from 7T brain diffusion data using a Physics-Informed Neural Network. Both IR and non-IR acquisition sequences are supported, with the appropriate signal model applied for each.
-
-The approach follows [Voorter et al., MRM 2023](https://doi.org/10.1002/mrm.29754). If you use this, please cite that paper.
+This pipeline estimates three-compartment IVIM parameters from 7T brain diffusion data using a Physics-Informed Neural Network. Both IR and non-IR acquisition sequences are supported, with the appropriate signal model applied for each. The approach follows [Voorter et al., MRM 2023](https://doi.org/10.1002/mrm.29754). If you use this, please cite that paper.
 
 ---
 
@@ -10,14 +8,14 @@ The approach follows [Voorter et al., MRM 2023](https://doi.org/10.1002/mrm.2975
 
 Six parameters per voxel, always in this order:
 
-| Parameter | What it is | Range |
-|---|---|---|
-| `Dpar` | Parenchymal diffusivity (mm²/s) | 0.0001 – 0.0015 |
-| `Fint` | Interstitial fluid fraction | 0.005 – 0.4 |
-| `Dint` | Interstitial diffusivity (mm²/s) | 0.0015 – 0.004 |
-| `Fmv` | Microvascular fraction | 0.0 – 0.05 |
-| `Dmv` | Microvascular pseudo-diffusivity (mm²/s) | 0.004 – 0.2 |
-| `S0` | Baseline signal scale | 0.90 – 1.10 |
+| Parameter | What it is |
+|---|---|
+| `Dpar` | Parenchymal diffusivity (mm²/s) |
+| `Fint` | Interstitial fluid fraction |
+| `Dint` | Interstitial diffusivity (mm²/s) |
+| `Fmv` | Microvascular fraction |
+| `Dmv` | Microvascular pseudo-diffusivity (mm²/s) |
+| `S0` | Baseline signal scale |
 
 The 4D output NIfTI stacks them in this exact order, and there's a `_ORDER.txt` file in every output folder so you never have to guess.
 
