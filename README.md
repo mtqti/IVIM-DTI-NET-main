@@ -1,6 +1,6 @@
 # ICIM 3C — 3-Compartment IVIM PINN for 7T Human Brain DWI
 
-This is a PINN-based pipeline for fitting three-compartment IVIM models on 7T diffusion data. It Supports IR and non-IR sequences with the correct This pipeline estimates three-compartment IVIM parameters from 7T brain diffusion data using a Physics-Informed Neural Network. Both IR and non-IR acquisition sequences are supported, with the appropriate signal model applied for each.
+This pipeline estimates three-compartment IVIM parameters from 7T brain diffusion data using a Physics-Informed Neural Network. Both IR and non-IR acquisition sequences are supported, with the appropriate signal model applied for each.
 
 The approach follows [Voorter et al., MRM 2023](https://doi.org/10.1002/mrm.29754). If you use this, please cite that paper.
 
