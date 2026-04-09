@@ -46,16 +46,6 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 pip install nibabel numpy scipy tqdm joblib matplotlib
 ```
 
-Quick sanity check:
-
-```bash
-python - <<'EOF'
-import torch, nibabel, IVIMNET.deep as d
-print("PyTorch:", torch.__version__, "| CUDA:", torch.cuda.is_available())
-print("nibabel OK | IVIMNET OK")
-EOF
-```
-
 ---
 
 ## How it works — two steps
