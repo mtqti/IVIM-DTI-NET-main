@@ -34,7 +34,7 @@ cd icim-3c-7t
 git clone https://github.com/oliverchampion/IVIMNET.git
 pip install -e IVIMNET/
 
-# 3. Set up a virtual environment
+# 3. Set up a virtual environment (optional)
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 
