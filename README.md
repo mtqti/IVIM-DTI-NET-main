@@ -61,12 +61,29 @@ EOF
 ## How it works — two steps
 
 ```
+Step 0: Preprocessing
 Step 1: train_pinn_7t.py    train a model for your specific protocol (once)
 Step 2: PINN_7T_style.py    apply that model to your subjects
 ```
 
 You train once per protocol (IR vs non-IR, and your TE/TR/TI), then reuse the model for all subjects scanned with that protocol.
+---
 
+## Step 0 — Preprocessing
+
+Before running the pipeline, your DWI data should be preprocessed. The following steps are recommended:
+
+1. **Denoising** — e.g. MP-PCA using `dwidenoise` (MRtrix3)
+2. **Gibbs ringing correction** — e.g. `mrdegibbs` (MRtrix3)
+3. **Motion and eddy current correction** — e.g. `eddy` (FSL)
+4. **Brain masking** — e.g. `bet` (FSL) to generate the mask required by Step 2
+
+The pipeline expects:
+- A **4D DWI NIfTI** with all volumes in acquisition order
+- A **3D brain mask** matching the DWI dimensions
+- A **`.bval` file** with one b-value per volume, in acquisition order
+
+---
 ---
 
 ## Step 1 — Training
